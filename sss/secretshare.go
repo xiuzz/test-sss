@@ -43,13 +43,13 @@ func (s shuffle) Less(i, j int) bool {
 	return rand.Int()%2 == 0
 }
 
-func makeIndexes(n int) []int {
+func makeIndexes() []int {
 	var s shuffle = make([]int, 256)
 	for i := 0; i < 256; i++ {
 		s[i] = i + 1
 	}
 	sort.Sort(s)
-	return s[:n]
+	return s
 }
 
 func Recover(secrets []Secret, t int) byte {
@@ -72,9 +72,24 @@ func Recover(secrets []Secret, t int) byte {
 	}
 
 	m, s := recursion(coffees, values)
-	fmt.Println(m, s)
 
-	return byte(s / m) // TODO
+	return byte(s * inv(m) % p) // TODO
+}
+
+func inv(a int) int {
+	return quick_mi(a, p-2)
+}
+
+func quick_mi(a int, b int) int {
+	cnt := 1
+	for b > 0 {
+		if b&1 != 0 {
+			cnt = cnt * a % p
+		}
+		a = a * a % p
+		b >>= 1
+	}
+	return cnt
 }
 
 func recursion(coffees [][]int, values []int) (int, int) {
@@ -83,7 +98,6 @@ func recursion(coffees [][]int, values []int) (int, int) {
 	}
 	if len(coffees) == 1 {
 		c, m := coffees[0][0], values[0]
-		fmt.Println(c, m)
 		c = ((c % p) + p) % p
 		m = ((m % p) + p) % p
 		return c, m
@@ -112,25 +126,31 @@ func SplitSecret(secret byte, n, t int) []Secret {
 	params[0] = int(secret)
 
 	fmt.Println(params)
-	indexes := makeIndexes(n) // TODO
+	indexes := makeIndexes() // TODO
 	secrets := make([]Secret, n)
-	for i := 0; i < n; i++ {
-		secrets[i] = Secret{
-			Share: calculate(params, indexes[i]),
+	cnt := 0
+	for i := 0; i < 256 && cnt < n; i++ {
+		tmp := calculate(params, indexes[i])
+		if tmp == 256 {
+			continue
+		}
+		secrets[cnt] = Secret{
+			Share: byte(tmp),
 			Index: indexes[i],
 		}
+		cnt++
 	}
 
 	return secrets
 }
 
-func calculate(param []int, index int) byte {
+func calculate(param []int, index int) int {
 	sum := 0
 	tmp := 1
 	for i := 0; i < len(param); i++ {
-		sum += param[i] * tmp % p
+		sum = (sum + param[i]*tmp) % p
 		tmp *= index
-		//tmp = tmp % p
+		tmp = tmp % p
 	}
-	return byte(sum)
+	return sum
 }
