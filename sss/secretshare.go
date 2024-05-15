@@ -9,8 +9,8 @@ import (
 const p = 257
 
 type Secret struct {
-	Index int  `json:"index"`
-	Share byte `json:"share"`
+	Index int    `json:"index"`
+	Share []byte `json:"share"`
 }
 
 func makeRandParameter(t int) []int {
@@ -52,29 +52,29 @@ func makeIndexes() []int {
 	return s
 }
 
-func Recover(secrets []Secret, t int) byte {
-	if len(secrets) != t {
-		panic("aaaa")
-	}
+// func Recover(secrets []Secret, t int) byte {
+// 	if len(secrets) != t {
+// 		panic("aaaa")
+// 	}
 
-	coffees := make([][]int, t)
-	values := make([]int, t)
-	for i := 0; i < t; i++ {
-		coffee := make([]int, t)
-		tmp := 1
-		for j := 0; j < t; j++ {
-			coffee[j] = tmp
-			tmp *= secrets[i].Index % p
-		}
-		coffees[i] = coffee
+// 	coffees := make([][]int, t)
+// 	values := make([]int, t)
+// 	for i := 0; i < t; i++ {
+// 		coffee := make([]int, t)
+// 		tmp := 1
+// 		for j := 0; j < t; j++ {
+// 			coffee[j] = tmp
+// 			tmp *= secrets[i].Index % p
+// 		}
+// 		coffees[i] = coffee
 
-		values[i] = int(secrets[i].Share)
-	}
+// 		values[i] = int(secrets[i].Share)
+// 	}
 
-	m, s := recursion(coffees, values)
+// 	m, s := recursion(coffees, values)
 
-	return byte(s * inv(m) % p) // TODO
-}
+// 	return byte(s * inv(m) % p) // TODO
+// }
 
 func inv(a int) int {
 	return quick_mi(a, p-2)
@@ -121,28 +121,28 @@ func recursion(coffees [][]int, values []int) (int, int) {
 	return recursion(newCoffees, newValues)
 }
 
-func SplitSecret(secret byte, n, t int) []Secret {
-	params := makeRandParameter(t)
-	params[0] = int(secret)
+// func SplitSecret(secret byte, n, t int) []Secret {
+// 	params := makeRandParameter(t)
+// 	params[0] = int(secret)
 
-	fmt.Println(params)
-	indexes := makeIndexes() // TODO
-	secrets := make([]Secret, n)
-	cnt := 0
-	for i := 0; i < 256 && cnt < n; i++ {
-		tmp := calculate(params, indexes[i])
-		if tmp == 256 {
-			continue
-		}
-		secrets[cnt] = Secret{
-			Share: byte(tmp),
-			Index: indexes[i],
-		}
-		cnt++
-	}
+// 	fmt.Println(params)
+// 	indexes := makeIndexes() // TODO
+// 	secrets := make([]Secret, n)
+// 	cnt := 0
+// 	for i := 0; i < 256 && cnt < n; i++ {
+// 		tmp := calculate(params, indexes[i])
+// 		if tmp == 256 {
+// 			continue
+// 		}
+// 		secrets[cnt] = Secret{
+// 			Share: byte(tmp),
+// 			Index: indexes[i],
+// 		}
+// 		cnt++
+// 	}
 
-	return secrets
-}
+// 	return secrets
+// }
 
 func calculate(param []int, index int) int {
 	sum := 0
@@ -153,4 +153,62 @@ func calculate(param []int, index int) int {
 		tmp = tmp % p
 	}
 	return sum
+}
+
+func EnCrypto(message string, n, t int) []Secret {
+	indexes := makeIndexes()
+	cnt := 0
+	i := 0
+	secrets := make([]Secret, n)
+	for i := 0; i < len(secrets); i++ {
+		secrets[i] = Secret{
+			Share: make([]byte, len(message)),
+		}
+	}
+	params := makeRandParameter(t)
+	for cnt < n {
+		i = (i + 1) % 256
+		flag := false
+		for j := 0; j < len(message); j++ {
+			secret := message[j]
+			params[0] = int(secret)
+			fmt.Println("params:", params)
+			tmp := calculate(params, indexes[i])
+			if tmp == 256 {
+				flag = true
+				break
+			}
+			secrets[cnt].Share[j] = byte(tmp)
+		}
+		if !flag {
+			secrets[cnt].Index = indexes[i]
+			cnt++
+		}
+	}
+	return secrets
+}
+
+func DeCrypto(secrets []Secret, t int) []byte {
+	if len(secrets) != t {
+		panic("aaaa")
+	}
+	res := make([]byte, len(secrets[0].Share))
+	for k := 0; k < len(secrets[0].Share); k++ {
+		coffees := make([][]int, t)
+		values := make([]int, t)
+		for i := 0; i < t; i++ {
+			coffee := make([]int, t)
+			tmp := 1
+			for j := 0; j < t; j++ {
+				coffee[j] = tmp
+				tmp *= secrets[i].Index % p
+			}
+			coffees[i] = coffee
+
+			values[i] = int(secrets[i].Share[k])
+		}
+		m, s := recursion(coffees, values)
+		res[k] = byte(s * inv(m) % p)
+	}
+	return res
 }
